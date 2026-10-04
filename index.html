@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ALGOLex Chatbot</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #121a2b;
+      --line: #243049;
+      --text: #e8eefc;
+      --muted: #93a0bd;
+      --accent: #3d8bfd;
+      --user: #1d4ed8;
+      --bot: #18233a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Segoe UI, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    h1 { font-size: 18px; margin: 0; }
+    p.sub { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    button, select, input {
+      font: inherit;
+      color: var(--text);
+      background: #0f1728;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    button { cursor: pointer; background: var(--accent); border: 0; color: white; }
+    button.ghost { background: transparent; border: 1px solid var(--line); }
+    #setup, #chat {
+      width: min(860px, 100%);
+      margin: 0 auto;
+    }
+    #setup { padding: 16px; display: grid; gap: 10px; }
+    label { font-size: 13px; color: var(--muted); }
+    #log {
+      flex: 1;
+      overflow: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg {
+      max-width: 80%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      white-space: pre-wrap;
+      line-height: 1.45;
+    }
+    .user { align-self: flex-end; background: var(--user); }
+    .bot { align-self: flex-start; background: var(--bot); border: 1px solid var(--line); }
+    form {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+    }
+    textarea {
+      flex: 1;
+      resize: none;
+      min-height: 48px;
+      max-height: 140px;
+      font: inherit;
+      color: var(--text);
+      background: #0f1728;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .hidden { display: none !important; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>ALGOLex Chatbot</h1>
+      <p class="sub">Short answers for study, code, and career questions</p>
+    </div>
+    <div class="row">
+      <button class="ghost" id="clearBtn" type="button">Clear chat</button>
+      <button class="ghost" id="forgetBtn" type="button">Forget key</button>
+    </div>
+  </header>
+
+  <section id="setup">
+    <label for="key">xAI API key (saved only in this browser)</label>
+    <input id="key" type="password" placeholder="xai-..." autocomplete="off" />
+    <label for="model">Model</label>
+    <select id="model">
+      <option value="grok-4-fast">grok-4-fast</option>
+      <option value="grok-4">grok-4</option>
+      <option value="grok-3">grok-3</option>
+    </select>
+    <button id="saveKey" type="button">Start chat</button>
+  </section>
+
+  <div id="log" class="hidden"></div>
+  <form id="composer" class="hidden">
+    <textarea id="prompt" placeholder="Ask a question..." rows="2"></textarea>
+    <button type="submit">Send</button>
+  </form>
+
+  <script>
+    const SYSTEM = [
+      "You are the ALGOLex teaching assistant.",
+      "Answer in clear English, short paragraphs, with one small example when useful.",
+      "Help with Python, maths, Quantum AI ideas at beginner level, study plans, and resumes.",
+      "Do not invent exam marks, college rules, or legal advice.",
+      "If you are unsure, say so."
+    ].join(" ");
+
+    const setup = document.getElementById("setup");
+    const log = document.getElementById("log");
+    const composer = document.getElementById("composer");
+    const promptEl = document.getElementById("prompt");
+    const keyEl = document.getElementById("key");
+    const modelEl = document.getElementById("model");
+    let history = [];
+
+    function showChat() {
+      setup.classList.add("hidden");
+      log.classList.remove("hidden");
+      composer.classList.remove("hidden");
+    }
+    function add(role, text) {
+      const div = document.createElement("div");
+      div.className = "msg " + (role === "user" ? "user" : "bot");
+      div.textContent = text;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+    function boot() {
+      const saved = localStorage.getItem("algolex_xai_key");
+      const model = localStorage.getItem("algolex_model");
+      if (model) modelEl.value = model;
+      if (saved) {
+        keyEl.value = saved;
+        showChat();
+        add("bot", "Ready. Ask a study, code, or career question.");
+      }
+    }
+    document.getElementById("saveKey").onclick = () => {
+      const key = keyEl.value.trim();
+      if (!key) return alert("Paste an API key first.");
+      localStorage.setItem("algolex_xai_key", key);
+      localStorage.setItem("algolex_model", modelEl.value);
+      showChat();
+      add("bot", "Key saved in this browser only. Ask a question.");
+    };
+    document.getElementById("forgetBtn").onclick = () => {
+      localStorage.removeItem("algolex_xai_key");
+      keyEl.value = "";
+      history = [];
+      log.innerHTML = "";
+      setup.classList.remove("hidden");
+      log.classList.add("hidden");
+      composer.classList.add("hidden");
+    };
+    document.getElementById("clearBtn").onclick = () => {
+      history = [];
+      log.innerHTML = "";
+      add("bot", "Chat cleared.");
+    };
+    composer.onsubmit = async (e) => {
+      e.preventDefault();
+      const text = promptEl.value.trim();
+      const key = localStorage.getItem("algolex_xai_key");
+      if (!text || !key) return;
+      promptEl.value = "";
+      add("user", text);
+      history.push({ role: "user", content: text });
+      add("bot", "Thinking...");
+      const pending = log.lastChild;
+      try {
+        const res = await fetch("https://api.x.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + key
+          },
+          body: JSON.stringify({
+            model: localStorage.getItem("algolex_model") || modelEl.value,
+            messages: [{ role: "system", content: SYSTEM }, ...history.slice(-12)]
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || res.statusText);
+        const reply = data.choices?.[0]?.message?.content || "No reply.";
+        pending.textContent = reply;
+        history.push({ role: "assistant", content: reply });
+      } catch (err) {
+        pending.textContent = "Error: " + err.message + "\nCheck the key, model name, and that the browser can reach api.x.ai.";
+        history.pop();
+      }
+    };
+    boot();
+  </script>
+</body>
+</html>
